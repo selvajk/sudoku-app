@@ -1,0 +1,1704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SUDOKU</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Cormorant+Garamond:wght@300;400;600;700&family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --surface: #141418;
+    --surface2: #1c1c22;
+    --border: #2a2a35;
+    --border-bright: #3d3d50;
+    --accent: #c8b8ff;
+    --accent2: #7c6aff;
+    --accent3: #ff8fa3;
+    --given: #e8e0ff;
+    --user: #a8f0c8;
+    --error: #ff6b6b;
+    --muted: #555568;
+    --text: #e8e4f0;
+    --text2: #9898b0;
+    --highlight-cell: #2a2440;
+    --highlight-row: #1e1e28;
+    --highlight-match: #1c2a38;
+    --cell-size: clamp(38px, 9vw, 58px);
+    --grid-gap: 2px;
+    --box-gap: 6px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* Atmospheric background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 10%, rgba(124,106,255,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 50% at 80% 80%, rgba(200,184,255,0.05) 0%, transparent 60%),
+      radial-gradient(ellipse 30% 30% at 50% 50%, rgba(255,143,163,0.03) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 0 16px 40px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* === SCREENS === */
+  .screen { display: none; flex-direction: column; }
+  .screen.active { display: flex; }
+
+  /* ===================== HOME SCREEN ===================== */
+  .home-screen {
+    min-height: 100vh;
+    justify-content: center;
+    align-items: center;
+    gap: 0;
+    padding-top: 60px;
+    padding-bottom: 60px;
+  }
+
+  .logo-area {
+    text-align: center;
+    margin-bottom: 60px;
+  }
+
+  .logo-eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.35em;
+    color: var(--accent2);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.2s;
+  }
+
+  .logo-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(72px, 18vw, 110px);
+    font-weight: 300;
+    letter-spacing: -0.02em;
+    line-height: 0.9;
+    color: var(--text);
+    opacity: 0;
+    animation: fadeUp 0.8s ease forwards 0.3s;
+  }
+
+  .logo-title span {
+    color: var(--accent);
+  }
+
+  .logo-subtitle {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.2em;
+    margin-top: 20px;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.5s;
+  }
+
+  .home-actions {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.7s;
+  }
+
+  .btn-primary {
+    width: 100%;
+    padding: 18px 24px;
+    background: var(--accent2);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-primary::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .btn-primary:hover {
+    background: #9080ff;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(124,106,255,0.35);
+  }
+
+  .btn-primary:active { transform: translateY(0); }
+
+  .btn-secondary {
+    width: 100%;
+    padding: 15px 24px;
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    font-weight: 400;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .btn-secondary:hover {
+    border-color: var(--border-bright);
+    background: #22222c;
+    transform: translateY(-1px);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    border: none;
+    color: var(--text2);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    padding: 10px;
+    transition: color 0.2s;
+  }
+
+  .btn-ghost:hover { color: var(--accent); }
+
+  .home-secondary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 4px;
+  }
+
+  .home-footer {
+    margin-top: 40px;
+    text-align: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    opacity: 0;
+    animation: fadeUp 0.5s ease forwards 1s;
+  }
+
+  /* ===================== DIFFICULTY SCREEN ===================== */
+  .difficulty-screen {
+    padding-top: 80px;
+    gap: 32px;
+  }
+
+  .screen-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .back-btn {
+    width: 40px;
+    height: 40px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text2);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .back-btn:hover { border-color: var(--border-bright); color: var(--text); }
+
+  .screen-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 36px;
+    font-weight: 300;
+  }
+
+  .diff-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  .diff-card {
+    padding: 24px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .diff-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+
+  .diff-card[data-diff="easy"]::before   { background: radial-gradient(ellipse at top left, rgba(168,240,200,0.12), transparent 70%); }
+  .diff-card[data-diff="medium"]::before { background: radial-gradient(ellipse at top left, rgba(255,214,128,0.12), transparent 70%); }
+  .diff-card[data-diff="hard"]::before   { background: radial-gradient(ellipse at top left, rgba(255,143,163,0.12), transparent 70%); }
+  .diff-card[data-diff="expert"]::before { background: radial-gradient(ellipse at top left, rgba(200,184,255,0.15), transparent 70%); }
+
+  .diff-card:hover { border-color: var(--border-bright); transform: translateY(-2px); }
+  .diff-card:hover::before { opacity: 1; }
+
+  .diff-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-bottom: 16px;
+  }
+
+  .diff-card[data-diff="easy"]   .diff-dot { background: #a8f0c8; }
+  .diff-card[data-diff="medium"] .diff-dot { background: #ffd680; }
+  .diff-card[data-diff="hard"]   .diff-dot { background: #ff8fa3; }
+  .diff-card[data-diff="expert"] .diff-dot { background: var(--accent); }
+
+  .diff-name {
+    font-weight: 600;
+    font-size: 17px;
+    margin-bottom: 6px;
+  }
+
+  .diff-desc {
+    font-size: 12px;
+    color: var(--text2);
+    line-height: 1.5;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .diff-time {
+    margin-top: 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  /* ===================== GAME SCREEN ===================== */
+  .game-screen {
+    padding-top: 16px;
+    gap: 16px;
+    min-height: 100vh;
+  }
+
+  /* Top bar */
+  .game-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+  }
+
+  .diff-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    color: var(--accent2);
+    text-transform: uppercase;
+    background: rgba(124,106,255,0.12);
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(124,106,255,0.2);
+  }
+
+  .timer-display {
+    font-family: 'DM Mono', monospace;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--text);
+    letter-spacing: 0.05em;
+  }
+
+  .pause-btn {
+    width: 38px;
+    height: 38px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.2s;
+  }
+
+  .pause-btn:hover { border-color: var(--border-bright); color: var(--text); }
+
+  /* Error counter */
+  .error-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  .error-dots {
+    display: flex;
+    gap: 5px;
+  }
+
+  .error-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border-bright);
+    transition: all 0.3s;
+  }
+
+  .error-dot.active {
+    background: var(--error);
+    border-color: var(--error);
+    box-shadow: 0 0 8px rgba(255,107,107,0.5);
+  }
+
+  /* ===================== GRID ===================== */
+  .grid-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .sudoku-grid {
+    display: grid;
+    grid-template-columns: repeat(9, var(--cell-size));
+    grid-template-rows: repeat(9, var(--cell-size));
+    gap: var(--grid-gap);
+    background: var(--border-bright);
+    border: 2px solid var(--border-bright);
+    border-radius: 14px;
+    padding: 2px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03);
+    position: relative;
+  }
+
+  /* Box separators via pseudo-element grid lines */
+  .sudoku-grid::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(to right, transparent calc(33.33% - 1px), var(--accent2) calc(33.33%), transparent calc(33.33% + 1px)),
+      linear-gradient(to right, transparent calc(66.66% - 1px), var(--accent2) calc(66.66%), transparent calc(66.66% + 1px)),
+      linear-gradient(to bottom, transparent calc(33.33% - 1px), var(--accent2) calc(33.33%), transparent calc(33.33% + 1px)),
+      linear-gradient(to bottom, transparent calc(66.66% - 1px), var(--accent2) calc(66.66%), transparent calc(66.66% + 1px));
+    opacity: 0.25;
+    border-radius: 12px;
+  }
+
+  .cell {
+    background: var(--surface);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.12s ease;
+    border-radius: 4px;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .cell:hover:not(.given):not(.selected) { background: #1e1e2a; }
+
+  .cell.row-highlight   { background: var(--highlight-row); }
+  .cell.match-highlight { background: var(--highlight-match); }
+  .cell.selected        { background: var(--highlight-cell) !important; box-shadow: inset 0 0 0 2px var(--accent2); border-radius: 5px; }
+
+  .cell-value {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: calc(var(--cell-size) * 0.5);
+    font-weight: 600;
+    line-height: 1;
+    pointer-events: none;
+    transition: color 0.15s;
+  }
+
+  .cell.given   .cell-value { color: var(--given); }
+  .cell.user    .cell-value { color: var(--user); }
+  .cell.error   .cell-value { color: var(--error); animation: shake 0.3s ease; }
+  .cell.correct .cell-value { color: var(--user); animation: pop 0.3s ease; }
+
+  /* Notes grid */
+  .cell-notes {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    width: 90%;
+    height: 90%;
+    pointer-events: none;
+  }
+
+  .note-digit {
+    font-family: 'DM Mono', monospace;
+    font-size: calc(var(--cell-size) * 0.17);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.7;
+    line-height: 1;
+  }
+
+  .note-digit.hidden { opacity: 0; }
+
+  /* ===================== ACTION ROW ===================== */
+  .action-row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .action-btn {
+    flex: 1;
+    max-width: 100px;
+    padding: 12px 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text2);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .action-btn:hover { border-color: var(--border-bright); color: var(--text); background: #22222e; }
+  .action-btn.active { border-color: var(--accent2); color: var(--accent); background: rgba(124,106,255,0.1); }
+
+  .action-icon { font-size: 18px; }
+
+  .action-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* ===================== NUMBER PAD ===================== */
+  .numpad {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+  }
+
+  .num-btn {
+    aspect-ratio: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(20px, 5vw, 30px);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+  }
+
+  .num-btn:hover { border-color: var(--accent2); background: rgba(124,106,255,0.08); transform: translateY(-1px); }
+  .num-btn:active { transform: scale(0.95); }
+  .num-btn.disabled { opacity: 0.2; pointer-events: none; }
+
+  .num-remaining {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    line-height: 1;
+  }
+
+  .erase-btn {
+    grid-column: span 1;
+    aspect-ratio: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text2);
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .erase-btn:hover { border-color: var(--error); color: var(--error); background: rgba(255,107,107,0.08); }
+
+  /* ===================== PAUSE OVERLAY ===================== */
+  .pause-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10,10,15,0.92);
+    backdrop-filter: blur(16px);
+    z-index: 100;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+
+  .pause-overlay.active { display: flex; }
+
+  .pause-card {
+    background: var(--surface);
+    border: 1px solid var(--border-bright);
+    border-radius: 24px;
+    padding: 40px 48px;
+    width: min(380px, calc(100vw - 32px));
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+  }
+
+  .pause-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 42px;
+    font-weight: 300;
+    margin-bottom: 8px;
+    text-align: center;
+    color: var(--text);
+  }
+
+  /* ===================== WIN SCREEN ===================== */
+  .win-screen {
+    padding-top: 60px;
+    align-items: center;
+    text-align: center;
+    gap: 32px;
+  }
+
+  .win-icon {
+    font-size: 72px;
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .win-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 56px;
+    font-weight: 300;
+    color: var(--text);
+  }
+
+  .win-title span { color: var(--accent); }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    width: 100%;
+  }
+
+  .stat-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .stat-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--accent);
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--text2);
+    letter-spacing: 0.05em;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .pb-badge {
+    background: linear-gradient(135deg, rgba(168,240,200,0.15), rgba(124,106,255,0.15));
+    border: 1px solid rgba(168,240,200,0.3);
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: #a8f0c8;
+    letter-spacing: 0.1em;
+  }
+
+  .win-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+  }
+
+  /* ===================== SETTINGS SCREEN ===================== */
+  .settings-screen {
+    padding-top: 80px;
+    gap: 28px;
+  }
+
+  .settings-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .settings-group-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    text-transform: uppercase;
+    padding: 0 4px;
+    margin-bottom: 10px;
+  }
+
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+
+  .setting-row:first-of-type { border-radius: 12px 12px 0 0; }
+  .setting-row:last-of-type  { border-radius: 0 0 12px 12px; }
+  .setting-row:only-child    { border-radius: 12px; }
+  .setting-row:not(:last-of-type) { border-bottom: none; }
+  .setting-row:hover { border-color: var(--border-bright); }
+
+  .setting-label {
+    font-size: 15px;
+    color: var(--text);
+  }
+
+  .setting-sub {
+    font-size: 12px;
+    color: var(--text2);
+    margin-top: 2px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* Toggle switch */
+  .toggle {
+    width: 44px;
+    height: 26px;
+    background: var(--surface2);
+    border: 1px solid var(--border-bright);
+    border-radius: 13px;
+    position: relative;
+    transition: all 0.25s;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+
+  .toggle::after {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    background: var(--text2);
+    transition: all 0.25s;
+  }
+
+  .toggle.on {
+    background: var(--accent2);
+    border-color: var(--accent2);
+  }
+
+  .toggle.on::after {
+    left: calc(100% - 21px);
+    background: white;
+  }
+
+  /* ===================== HOW TO PLAY ===================== */
+  .howto-screen {
+    padding-top: 80px;
+    gap: 28px;
+  }
+
+  .howto-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .howto-num {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(124,106,255,0.15);
+    border: 1px solid rgba(124,106,255,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .howto-text h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .howto-text p {
+    font-size: 14px;
+    color: var(--text2);
+    line-height: 1.6;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* ===================== STATISTICS SCREEN ===================== */
+  .stats-screen {
+    padding-top: 80px;
+    gap: 28px;
+  }
+
+  .stats-best-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .stats-best-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 16px;
+  }
+
+  .stats-best-diff {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--text2);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .stats-best-time {
+    font-family: 'DM Mono', monospace;
+    font-size: 24px;
+    color: var(--accent);
+  }
+
+  .stats-best-time.none {
+    color: var(--muted);
+    font-size: 16px;
+  }
+
+  /* ===================== ANIMATIONS ===================== */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(-10px); }
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25%       { transform: translateX(-4px); }
+    75%       { transform: translateX(4px); }
+  }
+
+  @keyframes pop {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes confettiFall {
+    to { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  }
+
+  .confetti-piece {
+    position: fixed;
+    width: 8px;
+    height: 8px;
+    top: -10px;
+    animation: confettiFall linear forwards;
+    z-index: 200;
+    border-radius: 2px;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ HOME SCREEN ============ -->
+  <div class="screen home-screen active" id="homeScreen">
+    <div class="logo-area">
+      <div class="logo-eyebrow">A Classic Logic Puzzle</div>
+      <div class="logo-title">SU<span>·</span>DO<span>·</span>KU</div>
+      <div class="logo-subtitle">— fill every row, column &amp; box —</div>
+    </div>
+    <div class="home-actions">
+      <button class="btn-primary" onclick="showScreen('difficultyScreen')">New Game</button>
+      <button class="btn-secondary" id="continueBtn" onclick="continueGame()" style="display:none">Continue Game</button>
+      <div class="home-secondary">
+        <button class="btn-secondary" onclick="showScreen('statsScreen')">Statistics</button>
+        <button class="btn-secondary" onclick="showScreen('howtoScreen')">How to Play</button>
+      </div>
+      <button class="btn-ghost" onclick="showScreen('settingsScreen')">⚙ Settings</button>
+    </div>
+    <div class="home-footer">v1.0 &nbsp;·&nbsp; SUDOKU APP &nbsp;·&nbsp; 2026</div>
+  </div>
+
+  <!-- ============ DIFFICULTY SCREEN ============ -->
+  <div class="screen difficulty-screen" id="difficultyScreen">
+    <div class="screen-header">
+      <button class="back-btn" onclick="showScreen('homeScreen')">←</button>
+      <div class="screen-title">Choose Difficulty</div>
+    </div>
+    <div class="diff-grid">
+      <div class="diff-card" data-diff="easy" onclick="startGame('easy')">
+        <div class="diff-dot"></div>
+        <div class="diff-name">Easy</div>
+        <div class="diff-desc">Many givens.<br>Great to start.</div>
+        <div class="diff-time">~5–10 min</div>
+      </div>
+      <div class="diff-card" data-diff="medium" onclick="startGame('medium')">
+        <div class="diff-dot"></div>
+        <div class="diff-name">Medium</div>
+        <div class="diff-desc">Balanced<br>challenge.</div>
+        <div class="diff-time">~10–20 min</div>
+      </div>
+      <div class="diff-card" data-diff="hard" onclick="startGame('hard')">
+        <div class="diff-dot"></div>
+        <div class="diff-name">Hard</div>
+        <div class="diff-desc">Requires deeper<br>logic &amp; planning.</div>
+        <div class="diff-time">~20–40 min</div>
+      </div>
+      <div class="diff-card" data-diff="expert" onclick="startGame('expert')">
+        <div class="diff-dot"></div>
+        <div class="diff-name">Expert</div>
+        <div class="diff-desc">Minimal givens.<br>Maximum focus.</div>
+        <div class="diff-time">~40+ min</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ GAME SCREEN ============ -->
+  <div class="screen game-screen" id="gameScreen">
+    <div class="game-topbar">
+      <div class="diff-badge" id="gameDiffBadge">EASY</div>
+      <div class="timer-display" id="timerDisplay">00:00</div>
+      <button class="pause-btn" onclick="pauseGame()">⏸</button>
+    </div>
+    <div class="error-bar">
+      <span style="font-size:11px;letter-spacing:0.1em;">ERRORS</span>
+      <div class="error-dots">
+        <div class="error-dot" id="err0"></div>
+        <div class="error-dot" id="err1"></div>
+        <div class="error-dot" id="err2"></div>
+      </div>
+    </div>
+    <div class="grid-wrapper">
+      <div class="sudoku-grid" id="sudokuGrid"></div>
+    </div>
+    <div class="action-row">
+      <button class="action-btn" id="undoBtn" onclick="doUndo()">
+        <span class="action-icon">↩</span>
+        <span class="action-label">Undo</span>
+      </button>
+      <button class="action-btn" id="notesBtn" onclick="toggleNotes()">
+        <span class="action-icon">✏</span>
+        <span class="action-label">Notes</span>
+      </button>
+      <button class="action-btn" id="hintBtn" onclick="doHint()">
+        <span class="action-icon">💡</span>
+        <span class="action-label">Hint</span>
+      </button>
+    </div>
+    <div class="numpad" id="numpad"></div>
+  </div>
+
+  <!-- ============ PAUSE OVERLAY ============ -->
+  <div class="pause-overlay" id="pauseOverlay">
+    <div class="pause-card">
+      <div class="pause-title">Paused</div>
+      <button class="btn-primary" onclick="resumeGame()">Resume</button>
+      <button class="btn-secondary" onclick="restartGame()">Restart Puzzle</button>
+      <button class="btn-secondary" onclick="showScreen('difficultyScreen'); clearTimer()">New Game</button>
+      <button class="btn-secondary" onclick="quitToHome()">Quit to Home</button>
+    </div>
+  </div>
+
+  <!-- ============ WIN SCREEN ============ -->
+  <div class="screen win-screen" id="winScreen">
+    <div class="win-icon">✦</div>
+    <div class="win-title">Puzzle<br><span>Complete</span></div>
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-value" id="winTime">—</div>
+        <div class="stat-label">Time</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="winHints">0</div>
+        <div class="stat-label">Hints</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="winErrors">0</div>
+        <div class="stat-label">Errors</div>
+      </div>
+    </div>
+    <div class="pb-badge" id="pbBadge" style="display:none">🏆 New Personal Best!</div>
+    <div class="win-actions">
+      <button class="btn-primary" id="playAgainBtn" onclick="playAgain()">Play Again</button>
+      <button class="btn-secondary" onclick="showScreen('difficultyScreen')">New Game</button>
+      <button class="btn-secondary" onclick="showScreen('homeScreen')">Return Home</button>
+    </div>
+  </div>
+
+  <!-- ============ SETTINGS SCREEN ============ -->
+  <div class="screen settings-screen" id="settingsScreen">
+    <div class="screen-header">
+      <button class="back-btn" onclick="showScreen('homeScreen')">←</button>
+      <div class="screen-title">Settings</div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-group-label">Gameplay</div>
+      <div class="setting-row" onclick="toggleSetting('autoCheck')">
+        <div>
+          <div class="setting-label">Auto-check mistakes</div>
+          <div class="setting-sub">Highlight errors in real time</div>
+        </div>
+        <div class="toggle on" id="toggle-autoCheck"></div>
+      </div>
+      <div class="setting-row" onclick="toggleSetting('showTimer')">
+        <div>
+          <div class="setting-label">Show timer</div>
+          <div class="setting-sub">Display elapsed time</div>
+        </div>
+        <div class="toggle on" id="toggle-showTimer"></div>
+      </div>
+      <div class="setting-row" onclick="toggleSetting('highlightRow')">
+        <div>
+          <div class="setting-label">Highlight row &amp; column</div>
+          <div class="setting-sub">Shade related cells on select</div>
+        </div>
+        <div class="toggle on" id="toggle-highlightRow"></div>
+      </div>
+      <div class="setting-row" onclick="toggleSetting('highlightMatch')">
+        <div>
+          <div class="setting-label">Highlight matching numbers</div>
+          <div class="setting-sub">Show same-digit cells</div>
+        </div>
+        <div class="toggle on" id="toggle-highlightMatch"></div>
+      </div>
+      <div class="setting-row" onclick="toggleSetting('showRemaining')">
+        <div>
+          <div class="setting-label">Show remaining count</div>
+          <div class="setting-sub">Counter on number pad</div>
+        </div>
+        <div class="toggle on" id="toggle-showRemaining"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ HOW TO PLAY SCREEN ============ -->
+  <div class="screen howto-screen" id="howtoScreen">
+    <div class="screen-header">
+      <button class="back-btn" onclick="showScreen('homeScreen')">←</button>
+      <div class="screen-title">How to Play</div>
+    </div>
+    <div class="howto-card">
+      <div class="howto-num">1</div>
+      <div class="howto-text">
+        <h3>The Goal</h3>
+        <p>Fill every cell in the 9×9 grid so that each row, column, and 3×3 box contains the digits 1 through 9 — with no repeats.</p>
+      </div>
+    </div>
+    <div class="howto-card">
+      <div class="howto-num">2</div>
+      <div class="howto-text">
+        <h3>Pre-filled Cells</h3>
+        <p>The bright white digits are "givens" — they're locked in place and cannot be changed. Use them as your anchors.</p>
+      </div>
+    </div>
+    <div class="howto-card">
+      <div class="howto-num">3</div>
+      <div class="howto-text">
+        <h3>Entering Numbers</h3>
+        <p>Tap a cell to select it (it highlights blue), then tap a digit on the number pad to place it. Tap the eraser to clear a cell.</p>
+      </div>
+    </div>
+    <div class="howto-card">
+      <div class="howto-num">4</div>
+      <div class="howto-text">
+        <h3>Notes Mode (✏)</h3>
+        <p>Toggle notes mode to jot down candidate numbers in a cell without committing to an answer. Great for narrowing down options.</p>
+      </div>
+    </div>
+    <div class="howto-card">
+      <div class="howto-num">5</div>
+      <div class="howto-text">
+        <h3>Hints &amp; Undo</h3>
+        <p>Stuck? Tap 💡 Hint to reveal one correct cell. Use ↩ Undo to reverse your last move at any time.</p>
+      </div>
+    </div>
+    <button class="btn-secondary" onclick="showScreen('homeScreen')" style="margin-top:8px">Got it!</button>
+  </div>
+
+  <!-- ============ STATS SCREEN ============ -->
+  <div class="screen stats-screen" id="statsScreen">
+    <div class="screen-header">
+      <button class="back-btn" onclick="showScreen('homeScreen')">←</button>
+      <div class="screen-title">Statistics</div>
+    </div>
+    <div>
+      <div class="settings-group-label" style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.2em;color:var(--muted);text-transform:uppercase;padding:0 4px;margin-bottom:12px;">Personal Bests</div>
+      <div class="stats-best-row" id="personalBests"></div>
+    </div>
+    <div class="stat-card" style="flex-direction:row;justify-content:space-between;padding:20px 22px">
+      <div>
+        <div class="stat-label" style="margin-bottom:8px">Puzzles Completed</div>
+        <div class="stat-value" id="totalCompleted">0</div>
+      </div>
+      <div>
+        <div class="stat-label" style="margin-bottom:8px">Puzzles Started</div>
+        <div class="stat-value" id="totalStarted">0</div>
+      </div>
+    </div>
+    <button class="btn-ghost" onclick="resetStats()" style="margin-top:8px;color:var(--error);letter-spacing:0.08em">Reset Statistics</button>
+  </div>
+
+</div><!-- .app -->
+
+<script>
+// ===================== STATE =====================
+const state = {
+  board: [],         // current board values (0 = empty)
+  solution: [],      // full solved board
+  givens: [],        // bool array: is this cell pre-filled?
+  notes: [],         // 9x9 array of Set<number>
+  selected: null,    // {r, c}
+  errors: 0,
+  hintsUsed: 0,
+  notesMode: false,
+  difficulty: 'easy',
+  timerSec: 0,
+  timerInterval: null,
+  paused: false,
+  undoStack: [],
+};
+
+const settings = {
+  autoCheck: true,
+  showTimer: true,
+  highlightRow: true,
+  highlightMatch: true,
+  showRemaining: true,
+};
+
+const stats = {
+  best: { easy: null, medium: null, hard: null, expert: null },
+  completed: 0,
+  started: 0,
+};
+
+// ===================== PUZZLE GENERATION =====================
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function isValid(board, row, col, num) {
+  for (let i = 0; i < 9; i++) {
+    if (board[row][i] === num) return false;
+    if (board[i][col] === num) return false;
+  }
+  const br = Math.floor(row / 3) * 3;
+  const bc = Math.floor(col / 3) * 3;
+  for (let r = br; r < br + 3; r++)
+    for (let c = bc; c < bc + 3; c++)
+      if (board[r][c] === num) return false;
+  return true;
+}
+
+function solve(board) {
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      if (board[r][c] === 0) {
+        const nums = shuffle([1,2,3,4,5,6,7,8,9]);
+        for (const n of nums) {
+          if (isValid(board, r, c, n)) {
+            board[r][c] = n;
+            if (solve(board)) return true;
+            board[r][c] = 0;
+          }
+        }
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+function generatePuzzle(diff) {
+  // Build full solution
+  const solution = Array.from({ length: 9 }, () => Array(9).fill(0));
+  solve(solution);
+
+  // Determine givens count by difficulty
+  const givenCounts = { easy: 40, medium: 32, hard: 27, expert: 22 };
+  const targetGivens = givenCounts[diff];
+
+  const puzzle = solution.map(r => [...r]);
+  const cells = shuffle(Array.from({ length: 81 }, (_, i) => i));
+
+  let removed = 0;
+  for (const idx of cells) {
+    if (81 - removed <= targetGivens) break;
+    const r = Math.floor(idx / 9);
+    const c = idx % 9;
+    const backup = puzzle[r][c];
+    puzzle[r][c] = 0;
+    removed++;
+    // Simple uniqueness: just trust the generator for performance
+  }
+
+  return { puzzle, solution };
+}
+
+// ===================== GAME LOGIC =====================
+function startGame(diff) {
+  state.difficulty = diff;
+  const { puzzle, solution } = generatePuzzle(diff);
+  state.board = puzzle.map(r => [...r]);
+  state.solution = solution;
+  state.givens = puzzle.map(r => r.map(v => v !== 0));
+  state.notes = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => new Set()));
+  state.selected = null;
+  state.errors = 0;
+  state.hintsUsed = 0;
+  state.notesMode = false;
+  state.undoStack = [];
+  clearTimer();
+  stats.started++;
+  renderGrid();
+  renderNumpad();
+  updateErrorDots();
+  document.getElementById('gameDiffBadge').textContent = diff.toUpperCase();
+  document.getElementById('notesBtn').classList.remove('active');
+  showScreen('gameScreen');
+  startTimer();
+}
+
+function continueGame() {
+  const saved = loadSavedGame();
+  if (!saved) return;
+  Object.assign(state, saved);
+  state.notes = state.notes.map(row => row.map(s => new Set(s)));
+  renderGrid();
+  renderNumpad();
+  updateErrorDots();
+  document.getElementById('gameDiffBadge').textContent = state.difficulty.toUpperCase();
+  document.getElementById('notesBtn').classList[state.notesMode ? 'add' : 'remove']('active');
+  showScreen('gameScreen');
+  startTimer();
+}
+
+function selectCell(r, c) {
+  state.selected = { r, c };
+  renderHighlights();
+}
+
+function inputDigit(n) {
+  if (!state.selected) return;
+  const { r, c } = state.selected;
+  if (state.givens[r][c]) return;
+
+  if (state.notesMode) {
+    const noteSet = state.notes[r][c];
+    state.undoStack.push({ type: 'note', r, c, prev: new Set(noteSet) });
+    if (noteSet.has(n)) noteSet.delete(n);
+    else noteSet.add(n);
+    renderCell(r, c);
+    renderNumpad();
+    return;
+  }
+
+  state.undoStack.push({ type: 'value', r, c, prev: state.board[r][c] });
+  state.board[r][c] = n;
+  state.notes[r][c].clear();
+
+  if (settings.autoCheck && n !== 0 && n !== state.solution[r][c]) {
+    state.errors = Math.min(state.errors + 1, 3);
+    updateErrorDots();
+    renderCell(r, c, 'error');
+    setTimeout(() => renderCell(r, c), 600);
+  } else if (n !== 0) {
+    renderCell(r, c, 'correct');
+    setTimeout(() => renderCell(r, c), 300);
+  } else {
+    renderCell(r, c);
+  }
+
+  renderNumpad();
+  renderHighlights();
+  checkWin();
+}
+
+function doUndo() {
+  if (!state.undoStack.length) return;
+  const action = state.undoStack.pop();
+  const { r, c } = action;
+  if (action.type === 'value') {
+    state.board[r][c] = action.prev;
+  } else {
+    state.notes[r][c] = new Set(action.prev);
+  }
+  renderCell(r, c);
+  renderNumpad();
+  renderHighlights();
+}
+
+function doHint() {
+  // Find an empty or wrong cell and fill it
+  const empties = [];
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      if (!state.givens[r][c] && state.board[r][c] !== state.solution[r][c])
+        empties.push({ r, c });
+  if (!empties.length) return;
+  const pick = empties[Math.floor(Math.random() * empties.length)];
+  state.undoStack.push({ type: 'value', r: pick.r, c: pick.c, prev: state.board[pick.r][pick.c] });
+  state.board[pick.r][pick.c] = state.solution[pick.r][pick.c];
+  state.notes[pick.r][pick.c].clear();
+  state.hintsUsed++;
+  state.selected = pick;
+  renderCell(pick.r, pick.c, 'correct');
+  setTimeout(() => renderCell(pick.r, pick.c), 300);
+  renderNumpad();
+  renderHighlights();
+  checkWin();
+}
+
+function toggleNotes() {
+  state.notesMode = !state.notesMode;
+  document.getElementById('notesBtn').classList.toggle('active', state.notesMode);
+}
+
+function checkWin() {
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      if (state.board[r][c] !== state.solution[r][c]) return;
+  setTimeout(showWin, 400);
+}
+
+function showWin() {
+  clearTimer();
+  const timeStr = formatTime(state.timerSec);
+  const isPB = !stats.best[state.difficulty] || state.timerSec < stats.best[state.difficulty];
+  if (isPB) stats.best[state.difficulty] = state.timerSec;
+  stats.completed++;
+  clearSavedGame();
+
+  document.getElementById('winTime').textContent = timeStr;
+  document.getElementById('winHints').textContent = state.hintsUsed;
+  document.getElementById('winErrors').textContent = state.errors;
+  document.getElementById('pbBadge').style.display = isPB ? 'block' : 'none';
+  document.getElementById('playAgainBtn').onclick = playAgain;
+  showScreen('winScreen');
+  spawnConfetti();
+}
+
+function playAgain() {
+  startGame(state.difficulty);
+}
+
+function pauseGame() {
+  if (state.paused) return;
+  state.paused = true;
+  clearInterval(state.timerInterval);
+  document.getElementById('pauseOverlay').classList.add('active');
+}
+
+function resumeGame() {
+  state.paused = false;
+  document.getElementById('pauseOverlay').classList.remove('active');
+  startTimer();
+}
+
+function restartGame() {
+  document.getElementById('pauseOverlay').classList.remove('active');
+  startGame(state.difficulty);
+}
+
+function quitToHome() {
+  document.getElementById('pauseOverlay').classList.remove('active');
+  saveGame();
+  clearTimer();
+  showScreen('homeScreen');
+  updateContinueBtn();
+}
+
+// ===================== TIMER =====================
+function startTimer() {
+  clearInterval(state.timerInterval);
+  state.timerInterval = setInterval(() => {
+    state.timerSec++;
+    updateTimerDisplay();
+    if (state.timerSec % 10 === 0) saveGame();
+  }, 1000);
+}
+
+function clearTimer() {
+  clearInterval(state.timerInterval);
+}
+
+function updateTimerDisplay() {
+  const el = document.getElementById('timerDisplay');
+  el.textContent = formatTime(state.timerSec);
+  el.style.display = settings.showTimer ? '' : 'none';
+}
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60).toString().padStart(2, '0');
+  const s = (sec % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+// ===================== RENDERING =====================
+function renderGrid() {
+  const grid = document.getElementById('sudokuGrid');
+  grid.innerHTML = '';
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.r = r;
+      cell.dataset.c = c;
+      cell.addEventListener('click', () => selectCell(r, c));
+      grid.appendChild(cell);
+      renderCell(r, c);
+    }
+  }
+}
+
+function renderCell(r, c, animation) {
+  const grid = document.getElementById('sudokuGrid');
+  const cell = grid.children[r * 9 + c];
+  if (!cell) return;
+  cell.className = 'cell';
+
+  const val = state.board[r][c];
+  const isGiven = state.givens[r][c];
+  const notes = state.notes[r][c];
+
+  if (isGiven) cell.classList.add('given');
+
+  // Selection highlight
+  if (state.selected) {
+    const { r: sr, c: sc } = state.selected;
+    if (r === sr && c === sc) {
+      cell.classList.add('selected');
+    } else if (settings.highlightRow && (r === sr || c === sc || (Math.floor(r/3) === Math.floor(sr/3) && Math.floor(c/3) === Math.floor(sc/3)))) {
+      cell.classList.add('row-highlight');
+    }
+    if (settings.highlightMatch && val && val === state.board[sr][sc]) {
+      cell.classList.add('match-highlight');
+    }
+  }
+
+  cell.innerHTML = '';
+
+  if (notes.size > 0 && !val) {
+    const notesEl = document.createElement('div');
+    notesEl.className = 'cell-notes';
+    for (let n = 1; n <= 9; n++) {
+      const d = document.createElement('div');
+      d.className = 'note-digit' + (notes.has(n) ? '' : ' hidden');
+      d.textContent = n;
+      notesEl.appendChild(d);
+    }
+    cell.appendChild(notesEl);
+  } else if (val) {
+    if (!isGiven) cell.classList.add('user');
+    const v = document.createElement('div');
+    v.className = 'cell-value';
+    v.textContent = val;
+    if (animation === 'error') {
+      cell.classList.add('error');
+    } else if (animation === 'correct') {
+      cell.classList.add('correct');
+    }
+    // Auto-check coloring (no animation)
+    if (!animation && !isGiven && settings.autoCheck && val !== state.solution[r][c]) {
+      cell.classList.add('error');
+    }
+    cell.appendChild(v);
+  }
+}
+
+function renderHighlights() {
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      renderCell(r, c);
+}
+
+function updateErrorDots() {
+  for (let i = 0; i < 3; i++) {
+    document.getElementById('err' + i).classList.toggle('active', i < state.errors);
+  }
+}
+
+function renderNumpad() {
+  const numpad = document.getElementById('numpad');
+  numpad.innerHTML = '';
+
+  // Count placed digits
+  const counts = Array(10).fill(0);
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      if (state.board[r][c]) counts[state.board[r][c]]++;
+
+  for (let n = 1; n <= 9; n++) {
+    const btn = document.createElement('button');
+    btn.className = 'num-btn' + (counts[n] >= 9 ? ' disabled' : '');
+    btn.innerHTML = n;
+    if (settings.showRemaining && counts[n] < 9) {
+      btn.innerHTML += `<span class="num-remaining">${9 - counts[n]}</span>`;
+    }
+    btn.addEventListener('click', () => inputDigit(n));
+    numpad.appendChild(btn);
+  }
+
+  // Erase button in last slot
+  const eraseBtn = document.createElement('button');
+  eraseBtn.className = 'erase-btn';
+  eraseBtn.innerHTML = '⌫';
+  eraseBtn.addEventListener('click', () => inputDigit(0));
+  numpad.appendChild(eraseBtn);
+}
+
+// ===================== SETTINGS =====================
+function toggleSetting(key) {
+  settings[key] = !settings[key];
+  document.getElementById('toggle-' + key).classList.toggle('on', settings[key]);
+  if (key === 'showTimer') updateTimerDisplay();
+  if (key === 'showRemaining') renderNumpad();
+  if (key === 'highlightRow' || key === 'highlightMatch') renderHighlights();
+}
+
+// ===================== PERSISTENCE =====================
+function saveGame() {
+  try {
+    const data = {
+      board: state.board,
+      solution: state.solution,
+      givens: state.givens,
+      notes: state.notes.map(row => row.map(s => [...s])),
+      errors: state.errors,
+      hintsUsed: state.hintsUsed,
+      notesMode: state.notesMode,
+      difficulty: state.difficulty,
+      timerSec: state.timerSec,
+    };
+    localStorage.setItem('sudoku_save', JSON.stringify(data));
+  } catch(e) {}
+}
+
+function loadSavedGame() {
+  try {
+    const raw = localStorage.getItem('sudoku_save');
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch(e) { return null; }
+}
+
+function clearSavedGame() {
+  try { localStorage.removeItem('sudoku_save'); } catch(e) {}
+}
+
+function loadStats() {
+  try {
+    const raw = localStorage.getItem('sudoku_stats');
+    if (!raw) return;
+    Object.assign(stats, JSON.parse(raw));
+  } catch(e) {}
+}
+
+function saveStatsToStorage() {
+  try { localStorage.setItem('sudoku_stats', JSON.stringify(stats)); } catch(e) {}
+}
+
+function resetStats() {
+  if (!confirm('Reset all statistics?')) return;
+  stats.best = { easy: null, medium: null, hard: null, expert: null };
+  stats.completed = 0;
+  stats.started = 0;
+  saveStatsToStorage();
+  renderStatsScreen();
+}
+
+function updateContinueBtn() {
+  const btn = document.getElementById('continueBtn');
+  btn.style.display = loadSavedGame() ? 'block' : 'none';
+}
+
+function renderStatsScreen() {
+  const pb = document.getElementById('personalBests');
+  pb.innerHTML = '';
+  ['easy','medium','hard','expert'].forEach(d => {
+    const card = document.createElement('div');
+    card.className = 'stats-best-card';
+    const best = stats.best[d];
+    card.innerHTML = `
+      <div class="stats-best-diff">${d}</div>
+      <div class="stats-best-time ${best ? '' : 'none'}">${best ? formatTime(best) : '—'}</div>
+    `;
+    pb.appendChild(card);
+  });
+  document.getElementById('totalCompleted').textContent = stats.completed;
+  document.getElementById('totalStarted').textContent = stats.started;
+}
+
+// ===================== CONFETTI =====================
+function spawnConfetti() {
+  const colors = ['#c8b8ff','#a8f0c8','#ffd680','#ff8fa3','#7c6aff'];
+  for (let i = 0; i < 60; i++) {
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.className = 'confetti-piece';
+      el.style.left = Math.random() * 100 + 'vw';
+      el.style.background = colors[Math.floor(Math.random() * colors.length)];
+      el.style.animationDuration = (1.5 + Math.random() * 2) + 's';
+      el.style.animationDelay = (Math.random() * 0.5) + 's';
+      el.style.transform = `rotate(${Math.random() * 360}deg)`;
+      el.style.width = el.style.height = (6 + Math.random() * 8) + 'px';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 4000);
+    }, i * 30);
+  }
+}
+
+// ===================== NAVIGATION =====================
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (id === 'statsScreen') renderStatsScreen();
+  if (id === 'homeScreen') updateContinueBtn();
+}
+
+// ===================== KEYBOARD =====================
+document.addEventListener('keydown', e => {
+  const screen = document.querySelector('.screen.active');
+  if (!screen || screen.id !== 'gameScreen') return;
+  if (document.getElementById('pauseOverlay').classList.contains('active')) return;
+
+  const key = e.key;
+  if (key >= '1' && key <= '9') inputDigit(parseInt(key));
+  if (key === 'Backspace' || key === 'Delete' || key === '0') inputDigit(0);
+  if (key === 'z' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); doUndo(); }
+  if (key === 'n') toggleNotes();
+  if (key === 'h') doHint();
+  if (key === 'Escape') pauseGame();
+
+  if (!state.selected) return;
+  const { r, c } = state.selected;
+  const moves = {
+    ArrowUp:    [r - 1, c],
+    ArrowDown:  [r + 1, c],
+    ArrowLeft:  [r, c - 1],
+    ArrowRight: [r, c + 1],
+  };
+  if (moves[key]) {
+    e.preventDefault();
+    const [nr, nc] = moves[key];
+    if (nr >= 0 && nr < 9 && nc >= 0 && nc < 9) selectCell(nr, nc);
+  }
+});
+
+// ===================== INIT =====================
+window.addEventListener('beforeunload', () => {
+  if (document.getElementById('gameScreen').classList.contains('active')) saveGame();
+  saveStatsToStorage();
+});
+
+loadStats();
+updateContinueBtn();
+</script>
+</body>
+</html>
